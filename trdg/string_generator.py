@@ -1,9 +1,10 @@
 import random as rnd
 import string
-from typing import List
+from typing import List, Union
 
 import wikipedia
-
+from tqdm import tqdm
+ 
 
 def create_strings_from_file(filename: str, count: int) -> List[str]:
     """
@@ -51,9 +52,19 @@ def get_random_page_content() -> str:
         return get_random_page_content()
     return page_content
 
+def is_valid_phrase(phrase, vocab):
+    valid_phrase = True
+
+    if vocab is not None:
+        # ignore phrase if it contains characters not included in the vocabulary
+        for l in phrase:
+            if l not in vocab:
+                valid_phrase = False
+                break
+    return valid_phrase
 
 def create_strings_from_wikipedia(
-    minimum_length: int, count: int, lang: str
+    minimum_length: int, maximum_length:int, count: int, lang: str, vocab: Union[List[str], None]
 ) -> List[str]:
     """
     Create all string by randomly picking Wikipedia articles and taking sentences from them.
@@ -61,13 +72,36 @@ def create_strings_from_wikipedia(
     wikipedia.set_lang(lang)
     sentences = []
 
+    pbar = tqdm(desc="Generating sentences", total=count)
+
     while len(sentences) < count:
-        page_content = get_random_page_content()
-        processed_content = page_content.replace("\n", " ").split(". ")
-        sentence_candidates = [
-            s.strip() for s in processed_content if len(s.split()) > minimum_length
-        ]
-        sentences.extend(sentence_candidates)
+        page_content = get_random_page_content().strip()        
+
+        # split the article into paragraphs
+        processed_content = page_content.split("\n")
+
+        for par in processed_content:
+            processed_par = par.split(" ")
+
+            while len(processed_par) >= maximum_length:
+                # random number of words
+                rnd_num = rnd.randint(minimum_length, maximum_length)
+                split_phrase = processed_par[:rnd_num]
+                phrase = " ".join(split_phrase)                        
+                                
+                if is_valid_phrase(phrase, vocab):
+                    sentences.append(phrase.lstrip())
+                    pbar.update(1)
+                
+                processed_par = processed_par[rnd_num:]
+
+            if len(processed_par) >= minimum_length:
+                phrase = " ".join(processed_par)
+                if is_valid_phrase(phrase, vocab):
+                    sentences.append(phrase.lstrip())  
+                    pbar.update(1)
+
+    pbar.close() 
 
     return sentences[0:count]
 

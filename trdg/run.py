@@ -98,7 +98,15 @@ def parse_arguments():
         type=int,
         nargs="?",
         help="Define how many words should be included in each generated sample. If the text source is Wikipedia, this is the MINIMUM length",
-        default=1,
+        default=4,
+    )
+    parser.add_argument(
+        "-mw",
+        "--max_length",
+        type=int,
+        nargs="?",
+        help="Define the maximum number of words should be included in each generated sample (Wikipedia only).",
+        default=10,
     )
     parser.add_argument(
         "-r",
@@ -301,6 +309,14 @@ def parse_arguments():
         default=os.path.join(os.path.split(os.path.realpath(__file__))[0], "images"),
     )
     parser.add_argument(
+        "-v",
+        "--vocab",
+        type=str,
+        nargs="?",
+        help="Define vocabulary to be used",
+        default=None,
+    )
+    parser.add_argument(
         "-ca",
         "--case",
         type=str,
@@ -390,8 +406,15 @@ def main():
     # Creating synthetic sentences (or word)
     strings = []
 
+    vocab = None
+    if args.vocab is not None:
+        fd = open(args.vocab, "r")
+        vocab = []
+        for s in fd.readlines():
+            vocab.append(s.rstrip("\n"))
+
     if args.use_wikipedia:
-        strings = create_strings_from_wikipedia(args.length, args.count, args.language)
+        strings = create_strings_from_wikipedia(args.length, args.max_length, args.count, args.language, vocab)
     elif args.input_file != "":
         strings = create_strings_from_file(args.input_file, args.count)
     elif args.random_sequences:
@@ -430,7 +453,7 @@ def main():
     if args.case == "upper":
         strings = [x.upper() for x in strings]
     if args.case == "lower":
-        strings = [x.lower() for x in strings]
+        strings = [x.lower() for x in strings]    
 
     string_count = len(strings)
 
@@ -482,7 +505,7 @@ def main():
             os.path.join(args.output_dir, "labels.txt"), "w", encoding="utf8"
         ) as f:
             for i in range(string_count):
-                file_name = str(i) + "." + args.extension
+                file_name = args.language + "_" + str(i) + "." + args.extension
                 label = strings[i]
                 if args.space_width == 0:
                     label = label.replace(" ", "")
